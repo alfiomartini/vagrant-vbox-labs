@@ -19,7 +19,9 @@
     - [Testing Basic Internet Connectivity (ICMP)](#testing-basic-internet-connectivity-icmp)
     - [Verifying Internet Access via Package Manager](#verifying-internet-access-via-package-manager)
     - [Testing Inter-VM Connectivity](#testing-inter-vm-connectivity)
-    - [Testing Inter-VM Connectivity](#testing-inter-vm-connectivity-1)
+    - [Inspecting the Routing Table](#inspecting-the-routing-table)
+    - [Getting SSH Connection Details for Vagrant VM](#getting-ssh-connection-details-for-vagrant-vm)
+    - [Transfering files into a Vagrant VM](#transfering-files-into-a-vagrant-vm)
     - [Observing NAT in Action (Why This Matters)](#observing-nat-in-action-why-this-matters)
     - [Getting a Full Snapshot of Network Interface Configuration](#getting-a-full-snapshot-of-network-interface-configuration)
   - [Key Takeaways](#key-takeaways)
@@ -225,7 +227,7 @@ Reading state information... Done
 - `ping vm1` (success if inside `vm1`, `failure`otherwise)
 - `ping vm2` (success if inside `vm2`, `failure`otherwise)
 
-### Testing Inter-VM Connectivity
+### Inspecting the Routing Table
 
 Running  `ip route` will return an output similar to the following:
 
@@ -282,14 +284,54 @@ You can get the IP address of the DNS and DHCP servers running `networkctl statu
 ```
 Thus, our VMs don't talk directly to a real DNS server (like `8.8.8.8`, Google's public DNS server or your Internet Service Provider's servers). Instead, it sends DNS queries `10.0.2.3`, and Virtual Box forwards them _on the host's behalf_.
 
-To see a table of all interfaces, corresponding IP and MAC addresses, go to the root folder of this project
-and run the following command to copy the shell script into the home folder of `vm3`
+### Getting SSH Connection Details for Vagrant VM
 
+Running `vagrant ssh-config vm1` prints the full SSH configuration that Vagrant has set up for connecting to the VM named `vm1`.
+
+```bash
+Host vm1
+  HostName 127.0.0.1
+  User vagrant
+  Port 2222
+  UserKnownHostsFile /dev/null
+  StrictHostKeyChecking no
+  PasswordAuthentication no
+  IdentityFile C:/Users/alfio/Code/Labs/vagrant-vbox-labs/NAT/.vagrant/machines/vm1/virtualbox/private_key
+  IdentitiesOnly yes
+  LogLevel FATAL
+  PubkeyAcceptedKeyTypes +ssh-rsa
+  HostKeyAlgorithms +ssh-rsa
+```
+
+This includes:
+- The _SSH port_ on the host machine (usually a high-numbered port like `2222`).
+- The user (typically `vagrant`).
+- The path to the _private SSH key file_ that authenticates the connection.
+- It also includes SSH options that disable host key checking, specify the loggin level, and define the connection parameters used over the forwarded port.
+
+The host's forwarded port (`2222`) is a port that acts like a brdige to the VM's SSH port (usally `22`).
+
+### Transfering files into a Vagrant VM
+
+In NAT mode, Virtual Box places the VM behind an internal NAT router. This means the VM doesn't have a directly reachable IP address from the host. To connect to the VM (e.g., via `SSH` or `SCP`), _port forwarding must be used_, and Vagrant automatically sets this up (e.g., forwarding host port `2222` to guest port `22`).
+
+To copy a file into a Vagrant VM from your host, you can use the `scp` command like this:
+
+```bash
+scp -P <port-number> \
+    -i <path-to-private-key-file> \
+       <path-to-file-on-host> \
+       vagrant@127.0.0.1:/home/vagrant/<target-file>  
+```
+
+Thus, to see a table of all interfaces and corresponding IP and MAC addresses, go to the root folder of this project
+and run the following command to copy the shell script into the home folder of `vm1`:
 
 ```bash
 scp -P <port-number> -i C:/Users/alfio/Code/Vagrant/virtual-box-network-modes/NAT/.vagrant/machines/vm1/virtualbox/private_key Scripts/table-ips-macs.sh vagrant@127.0.0.1:/home/vagrant/table-ips-macs.sh
 ``` 
-Note that to get the correct port-number, you have to run `vagrant ssh-config vm1` first.
+
+Note that to get the correct port-number, you have to run `vagrant ssh-config vm1` first as explained above.
 
 Then, from the `home/vagrant`folder run:
 
