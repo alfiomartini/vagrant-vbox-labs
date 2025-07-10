@@ -1,0 +1,39 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+
+  config.vm.define "vm3" do |vm3|
+    vm3.vm.hostname = "vm3"
+
+    # NAT adapter is automatic on adapter 1 - do NOT disable it
+
+    # Internal network adapter on adapter 2
+    vm3.vm.network "private_network",
+                   virtualbox__intnet: "lab2_internal_net",
+                   ip: "192.168.100.10",
+                   adapter: 2
+
+    vm3.vm.provider "virtualbox" do |vb|
+      vb.name = "lab2_vm3"
+      vb.memory = 512
+      vb.cpus = 1
+    end
+  end
+
+  config.vm.define "vm4" do |vm4|
+    vm4.vm.hostname = "vm4"
+
+    # NAT adapter is automatic on adapter 1 - do NOT disable it
+
+    # Internal network adapter on adapter 2
+    vm4.vm.network "private_network",
+                   virtualbox__intnet: "lab2_internal_net",
+                   ip: "192.168.100.11",
+                   adapter: 2
+
+    vm4.vm.provider "virtualbox" do |vb|
+      vb.name = "lab2_vm4"
+      vb.memory = 512
+      vb.cpus = 1
+    end
+  end
+end

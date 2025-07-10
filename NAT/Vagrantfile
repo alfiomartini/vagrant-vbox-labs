@@ -1,0 +1,23 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+
+  # VM1 - NAT mode only
+  config.vm.define "vm1" do |vm1|
+    vm1.vm.hostname = "vm1"
+    vm1.vm.provider "virtualbox" do |vb|
+      vb.name = "lab1_vm1"
+      vb.memory = 512
+      vb.customize ["modifyvm", :id, "--nic1", "nat"]
+    end
+  end
+
+  # VM2 - NAT mode only
+  config.vm.define "vm2" do |vm2|
+    vm2.vm.hostname = "vm2"
+    vm2.vm.provider "virtualbox" do |vb|
+      vb.name = "lab1_vm2"
+      vb.memory = 512
+      vb.customize ["modifyvm", :id, "--nic1", "nat"]
+    end
+  end
+end
