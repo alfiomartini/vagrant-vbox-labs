@@ -214,9 +214,9 @@ For each interface, the output includes:
   - Broadcast address:
     - Listed as brd (e.g., `brd 10.0.2.255`).
 
-More informally, the first one, called `lo`, which stands is a special virtual interface that allows the machine to talk to itself internally. It has the IP address `127.0.0.1`, commonly known as _localhost_ , and it's always available, with no expiration. The system uses this for internal communications, like when you test a web server running on your own machine.
+From an informal perspective, the first interface, called `lo`, is a special virtual interface that allows the machine to talk to itself internally. It has the IP address `127.0.0.1`, commonly known as _localhost_ , and it's always available, with no expiration. The system uses this for internal communications, like when you test a web server running on your own machine.
 
-The second one, `enp0s3`, is your actual network interface — the one connected to VirtualBox’s virtual network adapter. It’s active, has a working connection, and was automatically assigned the IP address `10.0.2.15` by VirtualBox’s built-in DHCP server. That address belongs to the `10.0.2.0/24` subnet, which means it's part of a private local network used by the VirtualBox NAT system. The interface is fully functional and ready to communicate with the outside world through the virtual router. The IP lease is valid for a set amount of time, after which it may be renewed. This is the address your VM uses to send and receive internet traffic, with VirtualBox translating it behind the scenes.
+Likewise, the second interface, `enp0s3`, is the actual network interface — the one connected to VirtualBox’s virtual network adapter. It’s active, has a working connection, and was automatically assigned the IP address `10.0.2.15` by VirtualBox’s built-in DHCP server. That address belongs to the `10.0.2.0/24` subnet, which means it's part of a private local network used by the VirtualBox NAT system. The interface is fully functional and ready to communicate with the outside world through the virtual router. The IP lease is valid for a set amount of time, after which it may be renewed. This is the address your VM uses to send and receive internet traffic, with VirtualBox translating it behind the scenes.
 
 
 
