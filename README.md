@@ -9,5 +9,6 @@ Each Lab/Network Mode is comprised of:
 The Labs included in this project are:
 
 - [NAT](./NAT/README.md)
-- [Internal Network](./Internal/README.md)
-- (...under construction...)
+- [Internal Network](./Internal/README.md) - (under revision)
+- [Bridged](./Bridged/README.md) - (under construction)
+- (...remaining network modes...)

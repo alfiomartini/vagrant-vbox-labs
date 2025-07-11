@@ -172,7 +172,8 @@ Two Ubuntu VMs provisioned with Vagrant and running on VirtualBox.
 
 ### Checking Assigned IPv4 Addresses
   
-Running `ip -4 address` shows:
+Running `ip -4 address` shows a list of all network interfaces on the system, but only their IPv4-related information. 
+ 
 
    ```bash
     1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
@@ -182,12 +183,42 @@ Running `ip -4 address` shows:
     inet 10.0.2.15/24 metric 100 brd 10.0.2.255 scope global dynamic enp0s3
        valid_lft 81625sec preferred_lft 81625sec
    ```
+As a refresher, a _Network Interface Card_ (NIC  or Network Adapter) is the physical hardware component that allows a computer to connect to a network, while a _network interface_ is a software-defined abstraction that represents that connection (NIC) in the operating system.
 
-When you run ip -4 address, you're asking Linux to list all the IPv4 addresses currently assigned to your system's network interfaces. The output shows two main interfaces. 
+Thus, when you run `ip -4 address`, you're asking Linux to list all the IPv4 addresses currently assigned to your system's network interfaces. In this output, we see two interfaces:
 
-The first one is called lo, which stands for loopback. This is a special virtual interface that allows the machine to talk to itself internally. It has the IP address 127.0.0.1, commonly known as "localhost", and it's always available, with no expiration. The system uses this for internal communications, like when you test a web server running on your own machine.
+- `lo` (loopback, for local communication)
+- `enp0s3` (a network interface representing VirtrualBox's first virtual NIC, named as _Adapter 1_ in the VirtualBox Network settings).
 
-The second interface, `enp0s3`, is your actual network interface — the one connected to VirtualBox’s virtual network. It’s active, has a working connection, and was automatically assigned the IP address 10.0.2.15 by VirtualBox’s built-in DHCP server. That address belongs to the `10.0.2.0/24` subnet, which means it's part of a private local network used by the VirtualBox NAT system. The interface is fully functional and ready to communicate with the outside world through the virtual router. The IP lease is valid for a set amount of time (around 22 hours in this case), after which it may be renewed. This is the address your VM uses to send and receive internet traffic, with VirtualBox translating it behind the scenes.
+For each interface, the output includes:
+
+1. Interface name and status flags
+  - Example: `enp0s3: <BROADCAST,MULTICAST,UP,LOWER_UP>`.
+  - Key flags:
+      - `UP`: Interface is active.
+      - `LOWER_UP`: Physical link is connected (for hardware interfaces).
+      - `LOOPBACK`: Identifies the loopback interface (`lo`).
+
+2. IPv4 address and subnet
+  - Format: `inet <IP>/<subnet_mask>` (e.g., `inet 10.0.2.15/24`).
+
+3. Additional IPv4 metadata
+  - Scope:
+    - `host` (loopback, only visible locally).
+    - `global` (public or LAN-facing addresses).
+
+  - Dynamic/static assignment:
+    - `dynamic`: Address obtained via DHCP (with lease times like `valid_lft`).
+    - `static`: No lease times (e.g., loopback’s `forever`).
+
+  - Broadcast address:
+    - Listed as brd (e.g., `brd 10.0.2.255`).
+
+More informally, the first one, called `lo`, which stands is a special virtual interface that allows the machine to talk to itself internally. It has the IP address `127.0.0.1`, commonly known as _localhost_ , and it's always available, with no expiration. The system uses this for internal communications, like when you test a web server running on your own machine.
+
+The second one, `enp0s3`, is your actual network interface — the one connected to VirtualBox’s virtual network adapter. It’s active, has a working connection, and was automatically assigned the IP address `10.0.2.15` by VirtualBox’s built-in DHCP server. That address belongs to the `10.0.2.0/24` subnet, which means it's part of a private local network used by the VirtualBox NAT system. The interface is fully functional and ready to communicate with the outside world through the virtual router. The IP lease is valid for a set amount of time, after which it may be renewed. This is the address your VM uses to send and receive internet traffic, with VirtualBox translating it behind the scenes.
+
+
 
 ### Testing Basic Internet Connectivity (ICMP)
 
