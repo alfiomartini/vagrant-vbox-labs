@@ -1,13 +1,55 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
 Vagrant.configure("2") do |config|
+  # Common configuration for all VMs
   config.vm.box = "ubuntu/jammy64"
 
-  config.vm.define "vm5" do |vm5|
-    vm5.vm.hostname = "vm5"
-    vm5.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3165", auto_config: true
+  # --- Dynamic Bridge Adapter Selection ---
+  # Detect the host OS and set the correct physical network adapter for bridging.
+  # This makes the Vagrantfile portable between Windows and Linux hosts.
+  if Vagrant::Util::Platform.windows?
+    # NOTE: Replace with your actual Windows adapter name if different.
+    bridge_adapter = "Intel(R) Dual Band Wireless-AC 3165"
+  elsif Vagrant::Util::Platform.linux?
+    # NOTE: Replace "wlp0s20f3" with your actual Linux adapter name if different.
+    bridge_adapter = "wlp0s20f3"
+  else
+    # For other OSs (like macOS), Vagrant will prompt you to choose an adapter.
+    bridge_adapter = nil
   end
 
-  config.vm.define "vm6" do |vm6|
-    vm6.vm.hostname = "vm6"
-    vm6.vm.network "public_network", bridge: "Intel(R) Dual Band Wireless-AC 3165", auto_config: true
+  # --- Define the VMs for this lab ---
+  # The names here are used for `vagrant ssh vm5`, etc.
+  vms_to_create = ["vm5", "vm6"]
+
+  # Loop through the defined VMs and configure each one
+  vms_to_create.each do |vm_name|
+    config.vm.define vm_name do |vm_config|
+      # Set the hostname inside the guest OS
+      vm_config.vm.hostname = vm_name
+
+      # --- Network Configuration ---
+      # Vagrant requires the first adapter (NIC1) to be NAT for management (e.g., SSH).
+      # The `public_network` line below automatically creates a *second* adapter (NIC2)
+      # and sets it to Bridged Mode.
+      # We explicitly define the NAT adapter on NIC1 and set `default: false` to prevent
+      # it from creating a default route. This avoids the "two default routes" problem.
+      vm_config.vm.network "private_network", type: "nat", default: false
+
+      vm_config.vm.network "public_network", bridge: bridge_adapter, auto_config: true
+
+      vm_config.vm.provider "virtualbox" do |vb|
+        # Set a descriptive name using the "vm_mode_k" convention.
+        vm_number = vm_name.delete_prefix("vm") # Extracts "5" from "vm5"
+        vb.name = "vm_bridged_#{vm_number}"
+
+        # --- Explicit VM Settings ---
+        vb.memory = 512
+        vb.cpus = 1
+        vb.customize ["modifyvm", :id, "--nic1", "nat"]
+        vb.customize ["modifyvm", :id, "--nictype1", "82540EM"]
+      end
+    end
   end
 end

@@ -1,23 +1,34 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
 Vagrant.configure("2") do |config|
+  # Common configuration for all VMs
   config.vm.box = "ubuntu/jammy64"
 
-  # VM1 - NAT mode only
-  config.vm.define "vm1" do |vm1|
-    vm1.vm.hostname = "vm1"
-    vm1.vm.provider "virtualbox" do |vb|
-      vb.name = "lab1_vm1"
-      vb.memory = 512
-      vb.customize ["modifyvm", :id, "--nic1", "nat"]
-    end
-  end
+  # --- Define the VMs for this lab ---
+  # This array makes it easy to add or remove VMs without duplicating code.
+  # You can still control them individually, e.g., `vagrant ssh vm1`.
+  vms_to_create = ["vm1", "vm2"]
 
-  # VM2 - NAT mode only
-  config.vm.define "vm2" do |vm2|
-    vm2.vm.hostname = "vm2"
-    vm2.vm.provider "virtualbox" do |vb|
-      vb.name = "lab1_vm2"
-      vb.memory = 512
-      vb.customize ["modifyvm", :id, "--nic1", "nat"]
+  # Loop through the defined VMs and configure each one
+  vms_to_create.each do |vm_name|
+    # Use a more descriptive block variable like `vm_config` to avoid `vm.vm`
+    config.vm.define vm_name do |vm_config|
+      # Set the hostname inside the guest OS
+      vm_config.vm.hostname = vm_name
+
+      # Configure the VirtualBox provider for this VM
+      vm_config.vm.provider "virtualbox" do |vb|
+        # Set a descriptive name using the "vm_mode_k" convention.
+        vm_number = vm_name.delete_prefix("vm") # Extracts "1" from "vm1"
+        vb.name = "vm_nat_#{vm_number}"
+
+        # --- Explicit VM Settings ---
+        vb.memory = 512
+        vb.cpus = 1
+        vb.customize ["modifyvm", :id, "--nic1", "nat"]
+        vb.customize ["modifyvm", :id, "--nictype1", "82540EM"]
+      end
     end
   end
 end

@@ -1,0 +1,26 @@
+{
+  "cSpell.words": [
+    "alfio",
+    "codel",
+    "cpus",
+    "fefd",
+    "HWADDR",
+    "journalctl",
+    "lladdr",
+    "modifyvm",
+    "Nakivo",
+    "natnetwork",
+    "natnetworks",
+    "netif",
+    "networkctl",
+    "networkd",
+    "nictype",
+    "nmcli",
+    "noqueue",
+    "prefsrc",
+    "qdisc",
+    "qlen",
+    "SNAT",
+    "vmid"
+  ]
+}
