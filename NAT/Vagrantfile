@@ -1,6 +1,26 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+# --- KVM vs. VirtualBox Conflict Note (Linux Hosts) ---
+# If you encounter the error `VERR_VMX_IN_VMX_ROOT_MODE` when running `vagrant up`,
+# it means another hypervisor (like KVM, used by QEMU/libvirt) is active.
+# Both KVM and VirtualBox need exclusive access to CPU virtualization extensions
+# (Intel VT-x or AMD-V) and cannot run simultaneously.
+#
+# To solve this, temporarily unload the KVM kernel modules before using VirtualBox.
+#
+# For Intel CPUs:
+#   sudo modprobe -r kvm_intel
+#
+# For AMD CPUs:
+#   sudo modprobe -r kvm_amd
+#
+# (The `modprobe -r` command will also unload the base `kvm` module dependency).
+#
+# When you are done with VirtualBox and want to use KVM again, simply reload the
+# appropriate module (e.g., `sudo modprobe kvm_intel`).
+# ---------------------------------------------------------
+
 Vagrant.configure("2") do |config|
   # Common configuration for all VMs
   config.vm.box = "ubuntu/jammy64"
