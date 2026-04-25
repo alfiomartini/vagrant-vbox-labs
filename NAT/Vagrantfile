@@ -1,54 +1,35 @@
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
-
-# --- KVM vs. VirtualBox Conflict Note (Linux Hosts) ---
-# If you encounter the error `VERR_VMX_IN_VMX_ROOT_MODE` when running `vagrant up`,
-# it means another hypervisor (like KVM, used by QEMU/libvirt) is active.
-# Both KVM and VirtualBox need exclusive access to CPU virtualization extensions
-# (Intel VT-x or AMD-V) and cannot run simultaneously.
-#
-# To solve this, temporarily unload the KVM kernel modules before using VirtualBox.
-#
-# For Intel CPUs:
-#   sudo modprobe -r kvm_intel
-#
-# For AMD CPUs:
-#   sudo modprobe -r kvm_amd
-#
-# (The `modprobe -r` command will also unload the base `kvm` module dependency).
-#
-# When you are done with VirtualBox and want to use KVM again, simply reload the
-# appropriate module (e.g., `sudo modprobe kvm_intel`).
-# ---------------------------------------------------------
-
 Vagrant.configure("2") do |config|
-  # Common configuration for all VMs
-  config.vm.box = "ubuntu/jammy64"
+  # Loop to define each VM explicitly and independently
+  ["vm1", "vm2"].each do |name|
+    config.vm.define name do |node|
+      if name == "vm1"
+         node.vm.network "forwarded_port", guest: 8080, host: 8081
+      end
+      # --- Local VM Settings ---
+      node.vm.box = "debian/bookworm64"
+      node.vm.hostname = name
+      
+      # Explicitly define the primary disk for this instance
+      node.vm.disk :disk, name: "primary", size: "20GB"
+      
+      # Explicitly define the synced folder for this instance
+      node.vm.synced_folder ".", "/vagrant", disabled: false
 
-  # --- Define the VMs for this lab ---
-  # This array makes it easy to add or remove VMs without duplicating code.
-  # You can still control them individually, e.g., `vagrant ssh vm1`.
-  vms_to_create = ["vm1", "vm2"]
+      # --- Local Provider Settings ---
+      node.vm.provider "virtualbox" do |vb|
+        vb.name = "lab_nat_#{name}"
+        vb.memory = 1024
+        vb.cpus = 2
+        vb.gui = false
 
-  # Loop through the defined VMs and configure each one
-  vms_to_create.each do |vm_name|
-    # Use a more descriptive block variable like `vm_config` to avoid `vm.vm`
-    config.vm.define vm_name do |vm_config|
-      # Set the hostname inside the guest OS
-      vm_config.vm.hostname = vm_name
-
-      # Configure the VirtualBox provider for this VM
-      vm_config.vm.provider "virtualbox" do |vb|
-        # Set a descriptive name using the "vm_mode_k" convention.
-        vm_number = vm_name.delete_prefix("vm") # Extracts "1" from "vm1"
-        vb.name = "vm_nat_#{vm_number}"
-
-        # --- Explicit VM Settings ---
-        vb.memory = 512
-        vb.cpus = 1
+        # Explicitly set Adapter 1 to NAT mode for clarity
         vb.customize ["modifyvm", :id, "--nic1", "nat"]
-        vb.customize ["modifyvm", :id, "--nictype1", "82540EM"]
       end
     end
   end
 end
+
+# --- Note on Configuration Strategy ---
+# This Vagrantfile avoids global settings (inheritance) in favor of 'local' 
+# configuration within the machine block. While slightly more repetitive, 
+# this makes each VM definition self-contained and explicitly clear.
