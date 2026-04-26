@@ -1,55 +1,43 @@
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
+# ==============================================================================
+# IMPORTANT: SET YOUR HOST NETWORK INTERFACE HERE
+# Replace "eth0" with your active interface (e.g., wlo1, wlan0, enp0s31f6).
+# You can find it by running 'ip route | grep default' on your host.
+# ==============================================================================
+bridge_interface = "wlo1"
 
 Vagrant.configure("2") do |config|
-  # Common configuration for all VMs
-  config.vm.box = "ubuntu/jammy64"
+  # Using 2 VMs to demonstrate inter-VM connectivity on the physical LAN
+  ["vm1", "vm2"].each do |name|
+    config.vm.define name do |node|
+      # --- Local VM Settings ---
+      node.vm.box = "debian/bookworm64"
+      node.vm.hostname = name
+      node.vm.disk :disk, name: "primary", size: "20GB"
+      node.vm.synced_folder ".", "/vagrant", disabled: false
 
-  # --- Dynamic Bridge Adapter Selection ---
-  # Detect the host OS and set the correct physical network adapter for bridging.
-  # This makes the Vagrantfile portable between Windows and Linux hosts.
-  if Vagrant::Util::Platform.windows?
-    # NOTE: Replace with your actual Windows adapter name if different.
-    bridge_adapter = "Intel(R) Dual Band Wireless-AC 3165"
-  elsif Vagrant::Util::Platform.linux?
-    # NOTE: Replace "wlp0s20f3" with your actual Linux adapter name if different.
-    bridge_adapter = "wlp0s20f3"
-  else
-    # For other OSs (like macOS), Vagrant will prompt you to choose an adapter.
-    bridge_adapter = nil
-  end
+      # --- Bridged Networking ---
+      # use_dhcp_assigned_default_route: true ensures the bridged interface's
+      # gateway is used instead of the NAT interface's default route
+      node.vm.network "public_network", 
+        bridge: bridge_interface,
+        use_dhcp_assigned_default_route: true
 
-  # --- Define the VMs for this lab ---
-  # The names here are used for `vagrant ssh vm5`, etc.
-  vms_to_create = ["vm5", "vm6"]
-
-  # Loop through the defined VMs and configure each one
-  vms_to_create.each do |vm_name|
-    config.vm.define vm_name do |vm_config|
-      # Set the hostname inside the guest OS
-      vm_config.vm.hostname = vm_name
-
-      # --- Network Configuration ---
-      # Vagrant requires the first adapter (NIC1) to be NAT for management (e.g., SSH).
-      # The `public_network` line below automatically creates a *second* adapter (NIC2)
-      # and sets it to Bridged Mode.
-      # We explicitly define the NAT adapter on NIC1 and set `default: false` to prevent
-      # it from creating a default route. This avoids the "two default routes" problem.
-      vm_config.vm.network "private_network", type: "nat", default: false
-
-      vm_config.vm.network "public_network", bridge: bridge_adapter, auto_config: true
-
-      vm_config.vm.provider "virtualbox" do |vb|
-        # Set a descriptive name using the "vm_mode_k" convention.
-        vm_number = vm_name.delete_prefix("vm") # Extracts "5" from "vm5"
-        vb.name = "vm_bridged_#{vm_number}"
-
-        # --- Explicit VM Settings ---
-        vb.memory = 512
-        vb.cpus = 1
+      # --- Local Provider Settings ---
+      node.vm.provider "virtualbox" do |vb|
+        vb.name = "lab_bridged_#{name}"
+        vb.memory = 1024
+        vb.cpus = 2
+        vb.gui = false
+        # Explicitly define NIC 1 as NAT for Vagrant SSH management
         vb.customize ["modifyvm", :id, "--nic1", "nat"]
-        vb.customize ["modifyvm", :id, "--nictype1", "82540EM"]
       end
     end
   end
 end
+
+# --- Note on Configuration Strategy ---
+# This Vagrantfile resolves the 'Dual Gateway' conflict using Vagrant's built-in
+# use_dhcp_assigned_default_route option:
+# 1. Management: NIC 1 (NAT) is used for SSH.
+# 2. Experiment: NIC 2 (Bridged) receives DHCP and its gateway is prioritized.
+# 3. Result: The bridged interface becomes the active default gateway in the Guest OS.
