@@ -1,39 +1,86 @@
+# ==============================================================================
+# IMPORTANT: SET YOUR HOST NETWORK INTERFACE HERE
+# Replace "wlo1" with your active interface (e.g., eth0, wlan0).
+# This is used by VM1 (the router) to provide internet access to the lab.
+# ==============================================================================
+bridge_interface = "wlo1"
+
 Vagrant.configure("2") do |config|
-  config.vm.box = "ubuntu/jammy64"
+  # Define our network topology: VM1 is the gateway, others are clients
+  vms = [
+    { "name" => "vm1", "ip" => "192.168.23.1", "role" => "router" },
+    { "name" => "vm2", "ip" => "192.168.23.2", "role" => "client" },
+    { "name" => "vm3", "ip" => "192.168.23.3", "role" => "client" }
+  ]
 
-  config.vm.define "vm3" do |vm3|
-    vm3.vm.hostname = "vm3"
+  vms.each do |vm|
+    config.vm.define vm["name"] do |node|
+      # --- Local VM Settings ---
+      node.vm.box = "debian/bookworm64"
+      node.vm.hostname = vm["name"]
+      node.vm.disk :disk, name: "primary", size: "20GB"
+      node.vm.synced_folder ".", "/vagrant", disabled: false
 
-    # NAT adapter is automatic on adapter 1 - do NOT disable it
+      # --- Internal Network (Adapter 2) ---
+      # This connects all VMs to the same isolated "intnet-lab"
+      node.vm.network "private_network", 
+        ip: vm["ip"],
+        virtualbox__intnet: "intnet-lab"
 
-    # Internal network adapter on adapter 2
-    vm3.vm.network "private_network",
-                   virtualbox__intnet: "lab2_internal_net",
-                   ip: "192.168.100.10",
-                   adapter: 2
+      # --- Router Configuration (VM1) ---
+      if vm["role"] == "router"
+        # Adapter 3: Bridged interface providing the exit path to the physical LAN/Internet
+        node.vm.network "public_network", bridge: bridge_interface
 
-    vm3.vm.provider "virtualbox" do |vb|
-      vb.name = "lab2_vm3"
-      vb.memory = 512
-      vb.cpus = 1
-    end
-  end
+        node.vm.provision "shell", inline: <<-SHELL
+          echo ">>> Configuring VM1 as the Gateway (Router)..."
+          
+          # 1. Enable IPv4 forwarding: 'sysctl -w' applies the change to the running kernel immediately, 
+          #    and the 'echo' ensures the setting persists after a reboot via /etc/sysctl.conf.
+          sysctl -w net.ipv4.ip_forward=1
+          echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+          
+          # 2. Setup IP Masquerade: Appends a rule to the iptables NAT table to translate source IPs 
+          #    of outgoing packets, allowing nodes on the private network to access external networks.
+          iptables -t nat -A POSTROUTING -j MASQUERADE
+          
+          echo ">>> Router setup complete."
+        SHELL
+      end
 
-  config.vm.define "vm4" do |vm4|
-    vm4.vm.hostname = "vm4"
+      # --- Client Configuration (VM2, VM3) ---
+      if vm["role"] == "client"
+        node.vm.provision "shell", inline: <<-SHELL
+          echo ">>> Redirecting Client Traffic via VM1..."
+          
+          # 3. Update the default gateway: Deletes the existing default route (pointing to Vagrant's NAT) 
+          #    and adds a new default route pointing to VM1's internal IP (192.168.23.1).
+          ip route del default
+          ip route add default via 192.168.23.1
+          
+          echo ">>> Client setup complete. Default route now points to VM1."
+        SHELL
+      end
 
-    # NAT adapter is automatic on adapter 1 - do NOT disable it
-
-    # Internal network adapter on adapter 2
-    vm4.vm.network "private_network",
-                   virtualbox__intnet: "lab2_internal_net",
-                   ip: "192.168.100.11",
-                   adapter: 2
-
-    vm4.vm.provider "virtualbox" do |vb|
-      vb.name = "lab2_vm4"
-      vb.memory = 512
-      vb.cpus = 1
+      # --- Local Provider Settings ---
+      node.vm.provider "virtualbox" do |vb|
+        vb.name = "lab_internal_#{vm["name"]}"
+        vb.memory = 1024
+        vb.cpus = 2
+        vb.gui = false
+        
+        # Explicitly ensure NIC 1 is NAT for Vagrant SSH management
+        vb.customize ["modifyvm", :id, "--nic1", "nat"]
+      end
     end
   end
 end
+
+# --- Note on Configuration Strategy ---
+# This Lab automates a "Router-on-a-Stick" architecture using Vagrant:
+# 1. Management: NIC 1 (NAT) is reserved for Vagrant's SSH control plane.
+# 2. Private Subnet: NIC 2 connects all nodes to an isolated Internal Network.
+# 3. External Path: VM1 uses NIC 3 (Bridged) as its upstream link to the physical LAN.
+# 4. Traffic Flow: Provisioning scripts automate the conversion of VM1 into a 
+#    functional gateway by enabling IP forwarding/NAT and redirecting client traffic 
+#    through it, effectively replacing the default VirtualBox NAT routing.

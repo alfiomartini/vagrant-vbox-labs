@@ -54,6 +54,11 @@ flowchart TD
     Router --- INTERNET
 ```
 
+## Prerequisites
+
+- [VirtualBox](https://www.virtualbox.org/wiki/Downloads)
+- [Vagrant](https://developer.hashicorp.com/vagrant/install)
+
 ## The Vagrantfile [Configuration](./Vagrantfile)
 
 This lab uses a dual-adapter configuration to satisfy Vagrant's operational requirements while achieving the objective of a Bridged environment.

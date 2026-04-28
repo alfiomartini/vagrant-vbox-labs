@@ -108,7 +108,7 @@ Two Debian VMs provisioned with Vagrant and running on VirtualBox.
 
 ## Prerequisites inside the VM's
 
-- Network Manager: `sudo apt install network-manager`
+- Network Manager: `sudpo apt update & sudo apt install network-manager`
 - jq: `sudo apt install jq`
 - curl: `sudo apt install curl`
 
@@ -252,7 +252,7 @@ scp -P <port-number> \
 ```
 
 Note that to get the correct port-number (usually is `2222`), you have to run `vagrant ssh-config vm1`.
-As an example, to see a table of all interfaces and corresponding IP and MAC addresses, ensure you are in the *root folder of this project* and run the following command from your host machine to copy the shell script into the home folder of `vm1`:
+As an example, to see a table of all interfaces and corresponding IP and MAC addresses, ensure you are in the _root folder of this project_ and run the following command from your host machine to copy the shell script into the home folder of `vm1`:
 
 ```bash
 scp -P 2222 \
