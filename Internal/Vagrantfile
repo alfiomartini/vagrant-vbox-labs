@@ -30,35 +30,30 @@ Vagrant.configure("2") do |config|
       # --- Router Configuration (VM1) ---
       if vm["role"] == "router"
         # Adapter 3: Bridged interface providing the exit path to the physical LAN/Internet
-        node.vm.network "public_network", bridge: bridge_interface
+        # use_dhcp_assigned_default_route: true ensures the bridged interface's gateway 
+        # takes precedence over the NAT interface's default route.
+        node.vm.network "public_network", bridge: bridge_interface, use_dhcp_assigned_default_route: true
 
-        node.vm.provision "shell", inline: <<-SHELL
+        node.vm.provision "shell", run: "always", inline: <<-SHELL
           echo ">>> Configuring VM1 as the Gateway (Router)..."
-          
-          # 1. Enable IPv4 forwarding: 'sysctl -w' applies the change to the running kernel immediately, 
-          #    and the 'echo' ensures the setting persists after a reboot via /etc/sysctl.conf.
+
+          # 1. Enable IPv4 forwarding
           sysctl -w net.ipv4.ip_forward=1
-          echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-          
-          # 2. Setup IP Masquerade: Appends a rule to the iptables NAT table to translate source IPs 
-          #    of outgoing packets, allowing nodes on the private network to access external networks.
-          iptables -t nat -A POSTROUTING -j MASQUERADE
-          
+          grep -qxF 'net.ipv4.ip_forward=1' /etc/sysctl.conf || echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
+
+          # 2. Setup IP Masquerade: Use -C to check existence first to avoid duplicate rules
+          iptables -t nat -C POSTROUTING -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -j MASQUERADE
+
           echo ">>> Router setup complete."
         SHELL
       end
-
       # --- Client Configuration (VM2, VM3) ---
       if vm["role"] == "client"
-        node.vm.provision "shell", inline: <<-SHELL
-          echo ">>> Redirecting Client Traffic via VM1..."
-          
-          # 3. Update the default gateway: Deletes the existing default route (pointing to Vagrant's NAT) 
-          #    and adds a new default route pointing to VM1's internal IP (192.168.23.1).
-          ip route del default
-          ip route add default via 192.168.23.1
-          
-          echo ">>> Client setup complete. Default route now points to VM1."
+        node.vm.provision "shell", run: "always", inline: <<-SHELL
+          echo ">>> Setting VM1 (192.168.23.1) as the default gateway..."
+          # Replace the existing default route with the one pointing to our Internal Lab router
+          ip route replace default via 192.168.23.1 dev eth1
+          echo ">>> Client setup complete."
         SHELL
       end
 

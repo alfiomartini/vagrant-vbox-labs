@@ -54,6 +54,19 @@ flowchart TD
     Router --- INTERNET
 ```
 
+**Understanding the Topology**
+
+This diagram illustrates how Bridged mode integrates virtual machines directly into the physical network. Unlike isolated modes, every node here is a peer on the same LAN segment.
+
+*   **Physical LAN (`192.168.0.0/24`)**: Your physical network infrastructure, including the router (the gateway to the internet) and other hardware devices.
+*   **Host Machine (`192.168.0.87`)**: The computer running VirtualBox. In Bridged mode, the host remains a peer alongside its VMs.
+*   **Bridged VMs (`vm1`, `vm2`)**: These virtual machines are assigned IP addresses directly by your physical router's DHCP server. 
+    *   **Direct Access**: Because they occupy the same subnet as your host and physical devices, traffic does not need to be translated (NAT) or forwarded by the host machine to reach the local network. 
+    *   **Direct Connectivity**: Communication between `vm1`, `vm2`, and your host occurs directly through the virtual switch that bridges the host's physical network adapter. 
+    *   **External Access**: Internet-bound traffic from these VMs is handled directly by the physical router (`192.168.0.1`), bypassing the hypervisor's internal routing engines.
+
+***
+
 ## Prerequisites
 
 - [VirtualBox](https://www.virtualbox.org/wiki/Downloads)

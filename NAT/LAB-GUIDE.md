@@ -43,6 +43,17 @@ flowchart TD
     NAT2 --> Web
 ```
 
+**Understanding the Topology**
+
+This diagram illustrates how VirtualBox NAT mode allows virtual machines to access the internet while remaining logically isolated.
+
+*   **Private NAT Networks (`vm1`, `vm2`)**: Both virtual machines exist in their own private address space (`10.0.2.0/24`). Because each VM has the same IP (`10.0.2.15`), they are logically isolated from each other; they cannot communicate directly, even though they share the same subnet prefix.
+*   **The VirtualBox NAT Engine (`10.0.2.2`)**: VirtualBox acts as a router/gateway for the VMs. It intercepts traffic leaving the VM and performs Source Network Address Translation (SNAT), replacing the VM’s private IP with the host machine's physical IP. This allows the host to send the traffic out to the internet on the VM's behalf.
+*   **DNS Proxy (`10.0.2.3`)**: VirtualBox provides an internal DNS resolver. When a VM sends a DNS query to this address, VirtualBox captures it and forwards the request to your host's configured DNS servers. This allows VMs to resolve hostnames without needing their own direct path to external DNS servers.
+*   **External Access**: Internet-bound traffic flows through the NAT engine, which maps the internal request to a public-facing IP, allowing the response to be correctly routed back through the NAT engine to the requesting VM.
+
+***
+
 ## The Vagrantfile [Configuration](./Vagrantfile)
 
 ### Informal Explanation
