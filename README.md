@@ -34,3 +34,45 @@ Virtual machines whose adapters are configured to work in the VirtualBox Interna
 Because the internal network is entirely isolated and lacks inherent access to external networks or the host, a router or jump host machine is necessary to provide connectivity to the outside world. A router machine, often a VM running pfSense or a Linux distribution with IP forwarding enabled, can be connected to the internal network with one adapter and to a NAT/Bridged network with another, acting as a gateway that routes traffic from the isolated network to the internet.
 
 ![Internal Network Mode](images/vbox-internal-mode.png)
+
+### Internal Network with Linux Bridges (See [Vagrantfile](./LinBridges/Vagrantfile) and [Lab Guide](./LinBridges/LAB-GUIDE.md))
+
+A Linux bridge is a software component in the Linux kernel that acts as a virtual Layer 2 network switch. It connects multiple network interfaces to behave as a single network segment. Here we replicate the behavior of the VirtualBox **Internal Network** by manually creating a **Linux Bridge** (`br-int`) and **TAP interfaces** on the host. This approach provides a transparent networking environment where traffic is managed by the host kernel rather than the hypervisor, allowing for direct monitoring of the communication between isolated nodes.
+
+```mermaid
+flowchart TD
+    subgraph INTERNET [Internet]
+        Web["Public Website (google.com)"]
+    end
+
+    subgraph HOST [Host OS]
+        BR["Bridge: br-int"]
+        TAP1["tap-vm1"]
+        TAP2["tap-vm2"]
+        TAP3["tap-vm3"]
+        PHYS["Physical NIC: wlo1"]
+    end
+
+    subgraph VM1 ["vm1 (Gateway/Router)"]
+        eth1_1["eth1: 192.168.23.1"]
+        eth2_1["eth2: External"]
+    end
+
+    subgraph LAB ["Internal Lab"]
+        VM2["vm2: 192.168.23.2"]
+        VM3["vm3: 192.168.23.3"]
+    end
+
+    %% Layer 2 Wiring (Hardware Backplane)
+    VM2 -- "Bridged Adapter" --- TAP2
+    VM3 -- "Bridged Adapter" --- TAP3
+    eth1_1 -- "Bridged Adapter" --- TAP1
+
+    TAP1 & TAP2 & TAP3 -- "Bridge Ports" --- BR
+
+    %% Layer 3 Routing (Traffic Flow)
+    VM2 & VM3 -->|Gateway| eth1_1
+    eth1_1 -->|IP Forwarding| eth2_1
+    eth2_1 -- "Host Bridge" --- PHYS
+    PHYS -- "WLAN/LAN" --> Web
+```

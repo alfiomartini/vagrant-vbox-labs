@@ -1,0 +1,118 @@
+# ==============================================================================
+# IMPORTANT: SET YOUR HOST NETWORK INTERFACE HERE
+# Replace "wlo1" with your active interface (e.g., eth0, wlan0).
+# This is used by VM1 (the router) to provide internet access to the lab.
+# ==============================================================================
+bridge_interface = "wlo1"
+
+Vagrant.configure("2") do |config|
+  # Define our network topology: VM1 is the gateway, others are clients
+  vms = [
+    { "name" => "vm1", "ip" => "192.168.23.1", "role" => "router" },
+    { "name" => "vm2", "ip" => "192.168.23.2", "role" => "client" },
+    { "name" => "vm3", "ip" => "192.168.23.3", "role" => "client" }
+  ]
+
+  # --- Host Networking: Shared Bridge Infrastructure ---
+  # These triggers ensure the Linux Bridge (br-int) is established on the host.
+  # This acts as the shared networking segment for the laboratory nodes.
+  config.trigger.before :up do |trigger|
+    trigger.info = "Ensuring the virtual bridge (br-int) is active on the host..."
+    trigger.run = {
+      inline: "sudo bash -c 'if ! ip link show br-int >/dev/null 2>&1; then ip link add br-int type bridge; fi; ip link set br-int up'"
+    }
+  end
+
+  # Cleanup: Delete the shared virtual bridge after the machines are destroyed.
+  config.trigger.after :destroy do |trigger|
+    trigger.info = "Deleting the virtual bridge from the host..."
+    trigger.run = {
+      inline: "sudo bash -c 'if ip link show br-int >/dev/null 2>&1; then ip link delete br-int; fi'"
+    }
+  end
+
+  vms.each do |vm|
+    config.vm.define vm["name"] do |node|
+      # --- Local VM Settings ---
+      node.vm.box = "debian/bookworm64"
+      node.vm.hostname = vm["name"]
+      node.vm.disk :disk, name: "primary", size: "20GB"
+      node.vm.synced_folder ".", "/vagrant", disabled: false
+
+      # --- Per-VM Host Network Setup ---
+      # Each machine manages its own dedicated TAP interface for attachment to the bridge.
+      node.trigger.before :up do |trigger|
+        trigger.info = "Creating and attaching TAP interface for #{vm["name"]}..."
+        trigger.run = {
+          inline: "sudo bash -c 'if ! ip link show tap-#{vm["name"]} >/dev/null 2>&1; then ip tuntap add dev tap-#{vm["name"]} mode tap && ip link set tap-#{vm["name"]} master br-int; fi; ip link set tap-#{vm["name"]} up'"
+        }
+      end
+
+      # Cleanup: Delete the dedicated TAP interface when the machine is destroyed.
+      node.trigger.after :destroy do |trigger|
+        trigger.info = "Deleting the TAP interface for #{vm["name"]}..."
+        trigger.run = {
+          inline: "sudo bash -c 'if ip link show tap-#{vm["name"]} >/dev/null 2>&1; then ip link delete tap-#{vm["name"]}; fi'"
+        }
+      end
+
+      # --- Linux Bridge Connection (Adapter 2) ---
+      # This connects the virtual machine to the host-side bridge via its dedicated TAP.
+      node.vm.network "public_network", 
+        ip: vm["ip"],
+        bridge: "tap-#{vm["name"]}"
+
+      # --- Router Configuration (VM1) ---
+      if vm["role"] == "router"
+        # Adapter 3: Bridged interface providing the path to the physical LAN and Internet.
+        # use_dhcp_assigned_default_route: true ensures this interface's gateway 
+        # is prioritized in the guest routing table.
+        node.vm.network "public_network", bridge: bridge_interface, use_dhcp_assigned_default_route: true
+
+        node.vm.provision "shell", run: "always", inline: <<-SHELL
+          echo ">>> Configuring VM1 as a functional router..."
+
+          # 1. Enable IPv4 forwarding in the kernel
+          sysctl -w net.ipv4.ip_forward=1
+          grep -qxF 'net.ipv4.ip_forward=1' /etc/sysctl.conf || echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
+
+          # 2. Setup IP Masquerade (NAT) for the internal subnet
+          iptables -t nat -C POSTROUTING -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -j MASQUERADE
+
+          echo ">>> Router configuration complete."
+        SHELL
+      end
+
+      # --- Client Configuration (VM2, VM3) ---
+      if vm["role"] == "client"
+        node.vm.provision "shell", run: "always", inline: <<-SHELL
+          echo ">>> Routing external traffic through VM1 (192.168.23.1)..."
+          # Replace the default route set by the NAT adapter with the laboratory gateway.
+          ip route replace default via 192.168.23.1 dev eth1
+          echo ">>> Client routing complete."
+        SHELL
+      end
+
+      # --- Local Provider Settings ---
+      node.vm.provider "virtualbox" do |vb|
+        vb.name = "lab_linux-br_#{vm["name"]}"
+        vb.memory = 1024
+        vb.cpus = 2
+        vb.gui = false
+        
+        # Ensure NIC 1 remains the NAT interface for Vagrant management
+        vb.customize ["modifyvm", :id, "--nic1", "nat"]
+      end
+    end
+  end
+end
+
+# --- Note on Configuration Strategy ---
+# This Lab automates a centralized gateway routing architecture using Linux Bridges:
+# 1. Host Infrastructure: Vagrant triggers automate the creation of the bridge and TAP 
+#    interfaces on the host, bypassing VirtualBox's internal networking logic.
+# 2. Management: NIC 1 (NAT) is utilized for Vagrant's SSH communication.
+# 3. Private Subnet: NIC 2 connects each node to the host-managed virtual bridge.
+# 4. External Path: VM1 utilizes NIC 3 as its external gateway connection the physical network.
+# 5. Traffic Flow: Provisioning scripts configure VM1 as a functional router, 
+#    enabling traffic from the private subnet to reach the external network.
