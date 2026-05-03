@@ -30,41 +30,35 @@ flowchart TD
         Web["Public Website (google.com)"]
     end
 
-    subgraph HOST [Host OS: Linux]
-        subgraph BRIDGE [Linux Bridge: br-int]
-            TAP1["tap-vm1"]
-            TAP2["tap-vm2"]
-            TAP3["tap-vm3"]
-        end
+    subgraph HOST [Host OS]
+        BR["Bridge: br-int"]
+        TAP1["tap-vm1"]
+        TAP2["tap-vm2"]
+        TAP3["tap-vm3"]
         PHYS["Physical NIC: wlo1"]
     end
 
     subgraph VM1 ["vm1 (Gateway/Router)"]
-        direction TB
-        eth0["eth0: 10.0.2.15 (NAT)"]
-        eth1["eth1: 192.168.23.1 (Lab)"]
-        eth2["eth2: 192.168.0.113 (LAN)"]
+        eth1_1["eth1: 192.168.23.1"]
+        eth2_1["eth2: External"]
     end
 
-    subgraph LAB ["Internal Lab Subnet"]
-        direction TB
-        subgraph LAB_SUB [192.168.23.0/24]
-            VM2["vm2: 192.168.23.2"]
-            VM3["vm3: 192.168.23.3"]
-        end
+    subgraph LAB ["Internal Lab"]
+        VM2["vm2: 192.168.23.2"]
+        VM3["vm3: 192.168.23.3"]
     end
 
-    %% Layer 2 Wiring
+    %% Layer 2 Wiring (Layer 2 Segment)
     VM2 -- "Bridged Adapter" --- TAP2
     VM3 -- "Bridged Adapter" --- TAP3
-    eth1 -- "Bridged Adapter" --- TAP1
+    eth1_1 -- "Bridged Adapter" --- TAP1
 
-    TAP1 & TAP2 & TAP3 -- "Bridge Port" --- BRIDGE
+    TAP1 & TAP2 & TAP3 -- "Bridge Ports" --- BR
 
-    %% Layer 3 Routing
-    VM2 & VM3 -->|Gateway| eth1
-    eth1 -->|IP Forwarding| eth2
-    eth2 -- "Host Bridge" --- PHYS
+    %% Layer 3 Routing (Traffic Flow)
+    VM2 & VM3 -->|Gateway| eth1_1
+    eth1_1 -->|IP Forwarding| eth2_1
+    eth2_1 -- "Host Bridge" --- PHYS
     PHYS -- "WLAN/LAN" --> Web
 ```
 

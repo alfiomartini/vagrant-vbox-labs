@@ -63,7 +63,7 @@ flowchart TD
         VM3["vm3: 192.168.23.3"]
     end
 
-    %% Layer 2 Wiring (Hardware Backplane)
+    %% Layer 2 Wiring (Layer 2 Segment)
     VM2 -- "Bridged Adapter" --- TAP2
     VM3 -- "Bridged Adapter" --- TAP3
     eth1_1 -- "Bridged Adapter" --- TAP1
