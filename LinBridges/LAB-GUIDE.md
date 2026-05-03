@@ -18,7 +18,7 @@ In this lab, we replace the default VirtualBox internal networking mode with a *
 **Key Characteristics:**
 
 - **Linux Bridge (Layer 2)**: The virtual switch is a standard Linux Bridge (`br-int`) created on the host. This acts as a standard unmanaged switch that forwards Ethernet frames between any connected TAP interfaces.
-- **TAP Interface Connectivity**: Each VM is attached to the host bridge via a dedicated TAP interface. This treats the VM's virtual NIC as a physical-style attachment to a host-side port.
+- **TAP Interface Connectivity**: Each VM is attached to the host bridge via a dedicated TAP interface. This treats the VM's virtual NIC as a physical-style attachment to a host-side port. The connection functions by mapping the virtual network card in the VM directly to a TAP device on the host via the hypervisor. When the guest OS sends an Ethernet frame, the hypervisor captures the raw data from the virtual card's memory and writes it into a file descriptor associated with the TAP interface. This action makes the frame appear inside the host's kernel as if it had arrived on a physical port. The host can then forward this traffic to a network bridge, effectively linking the VM's internal transmissions to the host's external networking stack.
 - **Visibility**: Unlike VirtualBox's hidden internal mode, this bridge is a standard network interface on the host. You can use standard tools like `tcpdump` on the host to monitor the raw frames moving between the VMs.
 - **Manual Service Configuration**: Like the internal network mode, the hypervisor provides no automated services. All Layer 3 logic, including IP addressing and routing, must be manually established within the guest operating systems.
 
